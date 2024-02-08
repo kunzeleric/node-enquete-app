@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify";
-import { createPoll } from "./create-poll";
-import { getPoll } from "./get-poll";
-import { voteOnPoll } from "./vote-on-poll";
+import { createPoll } from "./controllers/create-poll";
+import { getPoll } from "./controllers/get-poll";
+import { voteOnPoll } from "./controllers/vote-on-poll";
 
 export const appRoutes = async (app: FastifyInstance) => {
   app.post('/polls', createPoll)

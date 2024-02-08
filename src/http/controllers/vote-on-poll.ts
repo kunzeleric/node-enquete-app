@@ -3,6 +3,8 @@ import { FastifyReply, FastifyRequest } from "fastify";
 import { prisma } from "src/lib/prisma";
 import { z } from 'zod'
 import { UserAlreadyVotedError } from "src/errors/user-already-voted-error";
+import { redis } from "src/lib/redis";
+import { voting } from "src/utils/voting-pub-sub";
 
 export const voteOnPoll = async (req: FastifyRequest, reply: FastifyReply) => {
   const voteOnPollBody = z.object({
@@ -35,6 +37,11 @@ export const voteOnPoll = async (req: FastifyRequest, reply: FastifyReply) => {
             id: userPreviousVoteOnPoll.id
           }
         })
+        // reduz voto da opção votada previamente
+        const votes = await redis.zincrby(pollId, -1, userPreviousVoteOnPoll.pollOptionId)
+        
+        // informa o pub sub da nova votação
+        voting.publish(pollId, { pollOptionId: userPreviousVoteOnPoll.pollOptionId, votes: Number(votes) })
       } else if (userPreviousVoteOnPoll) {
         throw new UserAlreadyVotedError()
       }
@@ -58,6 +65,12 @@ export const voteOnPoll = async (req: FastifyRequest, reply: FastifyReply) => {
         pollOptionId
       }
     })
+
+    // incrementa em 1 a votação da escolha (pollOptionId) na chave pollId
+    const votes = await redis.zincrby(pollId, 1, pollOptionId) 
+    
+    // informa o pub sub da nova votação
+    voting.publish(pollId, { pollOptionId, votes: Number(votes) })
 
     return reply.status(201).send()
   } catch (error) {
